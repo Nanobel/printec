@@ -15,7 +15,7 @@
     <div class="container mx-auto p-4 sm:p-6 lg:p-8">
         <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
             <h1 class="text-3xl font-bold text-gray-800">재고 현황</h1>
-            <p class="text-gray-500 mt-2">시트 이름: 삼성 / 신도&미놀타 / 제록스&오키 / 교세라 / 브라더 외 다수 / 새 기기 / 소모품 외</p>
+            <p class="text-gray-500 mt-2">시트 이름: 삼성 / 신도-미놀타 / 제록스-오키 / 교세라 / 브라더 외 다수 / 새 기기 / 소모품 외 / 부품</p>
         </div>
 
         <!-- 카테고리 선택 버튼: data-sheet 값은 스프레드시트의 실제 시트 이름과 일치해야 합니다. -->
@@ -23,25 +23,30 @@
             <button onclick="changeCategory('삼성')" data-sheet="삼성" class="category-btn bg-blue-500 text-white px-4 py-2 rounded-lg shadow hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 text-sm">
                 삼성
             </button>
-            <button onclick="changeCategory('신도&미놀타')" data-sheet="신도&미놀타" class="category-btn bg-gray-200 text-gray-700 px-4 py-2 rounded-lg shadow hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-opacity-50 text-sm">
+            <!-- 시트 이름 변경 권장: 신도&미놀타 -> 신도-미놀타 -->
+            <button onclick="changeCategory('신도-미놀타')" data-sheet="신도-미놀타" class="category-btn bg-gray-200 text-gray-700 px-4 py-2 rounded-lg shadow hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-opacity-50 text-sm">
                 신도/미놀타
             </button>
-            <button onclick="changeCategory('제록스&오키')" data-sheet="제록스&오키" class="category-btn bg-gray-200 text-gray-700 px-4 py-2 rounded-lg shadow hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-opacity-50 text-sm">
+            <!-- 시트 이름 변경 권장: 제록스&오키 -> 제록스-오키 -->
+            <button onclick="changeCategory('제록스-오키')" data-sheet="제록스-오키" class="category-btn bg-gray-200 text-gray-700 px-4 py-2 rounded-lg shadow hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-opacity-50 text-sm">
                 제록스/오키
             </button>
             <button onclick="changeCategory('교세라')" data-sheet="교세라" class="category-btn bg-gray-200 text-gray-700 px-4 py-2 rounded-lg shadow hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-opacity-50 text-sm">
                 교세라
             </button>
-            <button onclick="changeCategory('브라더&HP&앱손&렉스마크&캐논')" data-sheet="브라더&HP&앱손&렉스마크&캐논" class="category-btn bg-gray-200 text-gray-700 px-4 py-2 rounded-lg shadow hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-opacity-50 text-sm">
+            <!-- 시트 이름 변경 권장: 브라더&HP&엡손&렉스마크&캐논 -> 브라더-HP-etc -->
+            <button onclick="changeCategory('브라더-HP-etc')" data-sheet="브라더-HP-etc" class="category-btn bg-gray-200 text-gray-700 px-4 py-2 rounded-lg shadow hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-opacity-50 text-sm">
                 브라더 외
             </button>
             <button onclick="changeCategory('새기기')" data-sheet="새기기" class="category-btn bg-gray-200 text-gray-700 px-4 py-2 rounded-lg shadow hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-opacity-50 text-sm">
                 새 기기
             </button>
-            <button onclick="changeCategory('이니셜토너&데스크&팩스&용지')" data-sheet="이니셜토너&데스크&팩스&용지" class="category-btn bg-gray-200 text-gray-700 px-4 py-2 rounded-lg shadow hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-opacity-50 text-sm">
+            <!-- 시트 이름 변경 권장: 이니셜토너&데스크&팩스&용지 -> 토너-용지-etc -->
+            <button onclick="changeCategory('토너-용지-etc')" data-sheet="토너-용지-etc" class="category-btn bg-gray-200 text-gray-700 px-4 py-2 rounded-lg shadow hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-opacity-50 text-sm">
                 소모품 외
             </button>
-            <button onclick="changeCategory('정착기&현상기&윕스부품')" data-sheet="정착기&현상기&윕스부품" class="category-btn bg-gray-200 text-gray-700 px-4 py-2 rounded-lg shadow hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-opacity-50 text-sm">
+            <!-- 시트 이름 변경 권장: 정착기&현상기&윕스부품 -> 부품-소모품 -->
+            <button onclick="changeCategory('부품-소모품')" data-sheet="부품-소모품" class="category-btn bg-gray-200 text-gray-700 px-4 py-2 rounded-lg shadow hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-opacity-50 text-sm">
                 부품
             </button>
         </div>
@@ -93,9 +98,7 @@
     </div>
 
     <script>
-        // 🚨 중요: 여기에 배포된 구글 앱스 스크립트 웹 앱 URL을 붙여넣으세요.
-        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyFZDUm7Iz5QMQeseYfEkUEy7te8Fv4i1zn4HZfWuXn5llpd7ASqo2Dgr_UKhek4DB-Zg/exec'; // 사용자님의 실제 URL로 변경해주세요.
-
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyFZDUm7Iz5QMQeseYfEkUEy7te8Fv4i1zn4HZfWuXn5llpd7ASqo2Dgr_UKhek4DB-Zg/exec';
         let currentCategory = '삼성'; 
         let currentInventoryData = []; 
         
@@ -170,20 +173,24 @@
             loadingDiv.classList.remove('hidden');
 
             try {
-                // Fetch 요청 실패 시 재시도 로직 추가 (Failed to fetch 재현 방지)
-                const MAX_RETRIES = 3;
+                // Fetch 요청 실패 시 재시도 로직을 5회로 확장하고, 딜레이를 늘려 연결 안정성을 높입니다.
+                const MAX_RETRIES = 5; 
                 let response;
 
                 for (let i = 0; i < MAX_RETRIES; i++) {
                     try {
-                        response = await fetch(`${SCRIPT_URL}?sheet=${sheetName}`);
+                        // IMPORTANT: sheetName에 특수문자(& 등)가 포함될 경우를 대비해 인코딩을 적용합니다.
+                        const url = `${SCRIPT_URL}?sheet=${encodeURIComponent(sheetName)}`; 
+                        response = await fetch(url);
                         if (response.ok) {
                             break; // 성공하면 루프 탈출
                         }
                     } catch (e) {
                         // Failed to fetch 오류 발생 시 잠시 대기 후 재시도
                         if (i < MAX_RETRIES - 1) {
-                            await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1))); // 1초, 2초... 대기
+                            // 1.5초, 3초, 4.5초... 간격으로 재시도합니다.
+                            await new Promise(resolve => setTimeout(resolve, 1500 * (i + 1))); 
+                            console.warn(`Fetch failed for ${sheetName}, retrying... attempt ${i + 2}/${MAX_RETRIES}`);
                         } else {
                             throw e; // 마지막 시도에서 실패하면 오류 throw
                         }
@@ -205,9 +212,9 @@
 
             } catch (e) {
                 console.error('Fetch error:', e);
-                // "Failed to fetch" 오류를 좀 더 명확하게 안내합니다.
+                // "Failed to fetch" 오류를 좀 더 명확하게 안내하고, 총 시도 횟수를 표시합니다.
                 let errorMessage = e.message.includes('Failed to fetch') 
-                    ? `연결 오류: Apps Script URL을 다시 한번 확인하고 배포 상태(액세스 권한: 모든 사용자)를 점검해주세요. 시트 이름이 '${sheetName}'로 정확한지 확인해 주세요.`
+                    ? `연결 오류: Apps Script URL을 다시 한번 확인하고 배포 상태(액세스 권한: 모든 사용자)를 점검해주세요. 시트 이름이 '${sheetName}'로 정확한지 확인해 주세요. (총 ${MAX_RETRIES}회 시도 실패)`
                     : `데이터 로드 실패: ${e.message}`;
 
                 showError(errorMessage);
