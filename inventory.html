@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>재고 관리 시스템 (동적 연동)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Noto Sans KR', sans-serif; }
+        .category-btn { transition: all 0.2s ease-in-out; }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <div class="container mx-auto p-4 sm:p-6 lg:p-8">
+        <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+            <h1 class="text-3xl font-bold text-gray-800">재고 현황</h1>
+            <p class="text-gray-500 mt-2">이 페이지는 **구글 스프레드시트와 동적으로 연동**되며, 재고 수정이 가능합니다.</p>
+        </div>
+
+        <!-- 카테고리 선택 버튼 -->
+        <div class="mb-6 flex flex-wrap gap-2">
+            <button onclick="changeCategory('삼성')" data-sheet="삼성" class="category-btn bg-blue-500 text-white px-4 py-2 rounded-lg shadow hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50">
+                삼성
+            </button>
+            <button onclick="changeCategory('미놀타')" data-sheet="미놀타" class="category-btn bg-gray-200 text-gray-700 px-4 py-2 rounded-lg shadow hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-opacity-50">
+                미놀타/신도
+            </button>
+            <button onclick="changeCategory('제록스')" data-sheet="제록스" class="category-btn bg-gray-200 text-gray-700 px-4 py-2 rounded-lg shadow hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-opacity-50">
+                제록스
+            </button>
+        </div>
+        
+        <!-- 검색 필드 -->
+        <div class="mb-6">
+            <input type="text" id="search-input" oninput="applyFilterAndDisplay()" placeholder="제품 코드, 제품명, 또는 적용 모델로 검색하세요..." 
+                   class="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm transition duration-150 ease-in-out">
+        </div>
+
+        <!-- 알림/메시지 표시 영역 -->
+        <div id="notification" class="hidden p-3 mb-4 rounded-lg shadow-md transition-opacity duration-300" role="alert">
+            <p id="notification-text" class="font-medium"></p>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+            <!-- 로딩 및 오류 메시지 영역 -->
+            <div id="loading" class="p-8 text-center text-gray-500 hidden">
+                <svg class="animate-spin h-8 w-8 text-blue-500 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <p class="mt-4">재고 데이터를 불러오는 중입니다...</p>
+            </div>
+            <div id="error" class="p-8 text-center text-red-500 hidden">
+                <p id="error-text">데이터를 불러오는 데 실패했습니다. 스크립트 URL 또는 시트 이름을 확인해주세요.</p>
+            </div>
+            
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200 hidden" id="inventory-table">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">제품 코드</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">제품명</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">적용 모델</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">현재고 (수정 가능)</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">상태</th>
+                        </tr>
+                    </thead>
+                    <tbody id="inventory-body" class="bg-white divide-y divide-gray-200">
+                        <!-- 데이터가 여기에 동적으로 추가 -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+         <footer class="text-center text-gray-500 mt-8 text-sm">
+            <p>&copy; 2025 Inventory Manager. All rights reserved.</p>
+        </footer>
+    </div>
+
+    <script>
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyFZDUm7Iz5QMQeseYfEkUEy7te8Fv4i1zn4HZfWuXn5llpd7ASqo2Dgr_UKhek4DB-Zg/exec';
+
+        let currentCategory = '삼성'; 
+        let currentInventoryData = []; 
+        
+        const inventoryBody = document.getElementById('inventory-body');
+        const inventoryTable = document.getElementById('inventory-table');
+        const loadingDiv = document.getElementById('loading');
+        const errorDiv = document.getElementById('error');
+        const errorText = document.getElementById('error-text');
+        const notificationDiv = document.getElementById('notification');
+        const notificationText = document.getElementById('notification-text');
+
+        /**
+         * 알림 메시지를 표시합니다.
+         */
+        function showNotification(message, type = 'success') {
+            notificationText.textContent = message;
+            notificationDiv.classList.remove('hidden', 'bg-red-100', 'text-red-800', 'bg-green-100', 'text-green-800');
+            
+            if (type === 'success') {
+                notificationDiv.classList.add('bg-green-100', 'text-green-800');
+            } else {
+                notificationDiv.classList.add('bg-red-100', 'text-red-800');
+            }
+
+            // 5초 후에 알림 숨기기
+            setTimeout(() => {
+                notificationDiv.classList.add('hidden');
+            }, 5000);
+        }
+
+        /**
+         * 검색 입력이 변경되거나 카테고리가 변경될 때마다 호출되어 데이터를 필터링하고 테이블을 업데이트합니다.
+         */
+        function applyFilterAndDisplay() {
+            const searchTerm = document.getElementById('search-input').value.toLowerCase().trim();
+            const items = currentInventoryData;
+
+            const filteredItems = items.filter(item => {
+                if (!searchTerm) return true;
+                
+                const searchTarget = `${item.id} ${item.name} ${item.model}`.toLowerCase();
+                
+                return searchTarget.includes(searchTerm);
+            });
+
+            renderTable(filteredItems); 
+        }
+        
+        /**
+         * 카테고리 버튼 클릭 시 호출됩니다. 데이터 로딩을 시작합니다.
+         */
+        function changeCategory(sheetName) {
+            currentCategory = sheetName;
+            document.getElementById('search-input').value = ''; 
+            currentInventoryData = []; 
+            
+            updateActiveButton(sheetName);
+            fetchInventoryData(sheetName);
+        }
+
+        /**
+         * 구글 앱스 스크립트에서 데이터를 비동기적으로 가져옵니다. (GET 요청)
+         */
+        async function fetchInventoryData(sheetName) {
+            inventoryTable.classList.add('hidden');
+            errorDiv.classList.add('hidden');
+            loadingDiv.classList.remove('hidden');
+
+            try {
+                const MAX_RETRIES = 3;
+                let response;
+
+                for (let i = 0; i < MAX_RETRIES; i++) {
+                    try {
+                        response = await fetch(`${SCRIPT_URL}?sheet=${sheetName}`);
+                        if (response.ok) {
+                            break; 
+                        }
+                    } catch (e) {
+
+                        if (i < MAX_RETRIES - 1) {
+                            await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1))); // 1초, 2초... 대기
+                        } else {
+                            throw e; 
+                        }
+                    }
+                }
+                
+                if (!response || !response.ok) {
+                    throw new Error(`데이터 요청 실패 (HTTP 상태: ${response ? response.status : '알 수 없음'})`);
+                }
+
+                const data = await response.json();
+
+                if(data.error){
+                    throw new Error(`시트 오류: ${data.error}`);
+                }
+                
+                currentInventoryData = data; 
+                applyFilterAndDisplay();
+
+            } catch (e) {
+                console.error('Fetch error:', e);
+                // "Failed to fetch" 오류를 좀 더 명확하게 안내합니다.
+                let errorMessage = e.message.includes('Failed to fetch') 
+                    ? `연결 오류: Apps Script URL을 다시 한번 확인하고 배포 상태(액세스 권한: 모든 사용자)를 점검해주세요.`
+                    : `데이터 로드 실패: ${e.message}`;
+
+                showError(errorMessage);
+            } finally {
+                loadingDiv.classList.add('hidden');
+            }
+        }
+
+        /**
+         * '수정' 버튼 클릭 시 호출됩니다. 재고 업데이트 요청을 보냅니다. (POST 요청)
+         */
+        async function handleUpdateClick(itemId, sheetName) {
+            const inputElement = document.getElementById(`stock-input-${itemId}`);
+            const newStock = inputElement.value;
+            
+            if (isNaN(parseInt(newStock, 10)) || newStock.trim() === '') {
+                showNotification('유효한 재고 수량을 입력해주세요.', 'error');
+                return;
+            }
+
+            // Custom modal or confirmation dialog is required since window.confirm() is disallowed.
+            if (!confirm(`${sheetName}의 제품코드 ${itemId}의 재고를 ${newStock}으로 수정하시겠습니까?`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                    },
+                    body: JSON.stringify({
+                        sheetName: sheetName,
+                        itemId: itemId,
+                        newStock: newStock
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showNotification(result.message, 'success');
+                    await fetchInventoryData(sheetName); 
+                } else if (result.error) {
+                    showNotification(result.error, 'error');
+                } else {
+                    throw new Error('알 수 없는 오류가 발생했습니다.');
+                }
+
+            } catch (e) {
+                console.error('Update error:', e);
+                showNotification(`재고 업데이트 중 오류 발생: ${e.message}`, 'error');
+            }
+        }
+
+
+        /**
+         * 필터링된 데이터를 받아 테이블에 표시하는 실제 렌더링 함수
+         */
+        function renderTable(items) {
+            inventoryBody.innerHTML = ''; 
+            inventoryTable.classList.remove('hidden');
+
+            if (items.length === 0) {
+                const row = inventoryBody.insertRow();
+                const cell = row.insertCell();
+                cell.colSpan = 5;
+                cell.className = 'px-6 py-4 text-center text-gray-500';
+                cell.textContent = document.getElementById('search-input').value.trim() === '' 
+                    ? '표시할 재고 데이터가 없습니다.' 
+                    : '검색 결과에 해당하는 재고 데이터가 없습니다.';
+            } else {
+                items.forEach(item => {
+                    const row = document.createElement('tr');
+                    
+                    const stock = parseInt(item.stock, 10) || 0; 
+                    const statusColor = stock > 20 ? 'bg-green-100 text-green-800' : stock > 0 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800';
+                    const statusText = stock > 20 ? '정상' : stock > 0 ? '부족' : '품절';
+
+                    row.innerHTML = `
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${item.id}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">${item.name}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${item.model}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-bold text-blue-600">
+                            <div class="flex items-center space-x-2">
+                                <input type="number" value="${stock}" data-item-id="${item.id}" id="stock-input-${item.id}"
+                                    class="w-16 p-1 border border-gray-300 rounded text-center text-gray-800 focus:ring-blue-500 focus:border-blue-500" min="0">
+                                <button onclick="handleUpdateClick('${item.id}', '${currentCategory}')" 
+                                        class="bg-green-500 text-white p-2 rounded-md text-xs hover:bg-green-600 transition duration-150 shadow-sm whitespace-nowrap">
+                                    수정
+                                </button>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm">
+                            <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${statusColor}">
+                                ${statusText}
+                            </span>
+                        </td>
+                    `;
+                    inventoryBody.appendChild(row);
+                });
+            }
+        }
+        
+        function showError(message) {
+            inventoryTable.classList.add('hidden');
+            errorDiv.classList.remove('hidden');
+            errorText.textContent = message;
+        }
+
+        // 활성화된 버튼 스타일을 업데이트하는 함수
+        function updateActiveButton(activeSheetName) {
+            const buttons = document.querySelectorAll('.category-btn');
+            buttons.forEach(button => {
+                if (button.dataset.sheet === activeSheetName) {
+                    button.classList.remove('bg-gray-200', 'text-gray-700');
+                    button.classList.add('bg-blue-500', 'text-white');
+                } else {
+                    button.classList.remove('bg-blue-500', 'text-white');
+                    button.classList.add('bg-gray-200', 'text-gray-700');
+                }
+            });
+        }
+
+        // 페이지가 로드되면 기본값으로 '삼성' 데이터를 가져옵니다.
+        document.addEventListener('DOMContentLoaded', () => fetchInventoryData('삼성'));
+    </script>
+</body>
+</html>
