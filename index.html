@@ -3,55 +3,42 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>재고 관리 시스템</title>
+    <title>재고 관리 시스템 (입/출고 기능)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Noto Sans KR', sans-serif; }
         .category-btn { transition: all 0.2s ease-in-out; }
+        /* 긴 텍스트를 줄바꿈하여 모바일에서도 볼 수 있도록 함 */
+        .table-cell-long { white-space: normal; }
+        /* 재고 입력 필드 폭 조정 */
+        .stock-input { width: 4.5rem; }
     </style>
 </head>
 <body class="bg-gray-100">
     <div class="container mx-auto p-4 sm:p-6 lg:p-8">
         <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
             <h1 class="text-3xl font-bold text-gray-800">재고 현황</h1>
-            <p class="text-gray-500 mt-2">시트 이름: 삼성 / 신도-미놀타 / 제록스-오키 / 교세라 / 브라더-HP-엡손-렉스마크-캐논 / 새 기기 / 이니셜토너-데스크-팩스-용지 / 정착기-현상기-윕스부품</p>
+            <p class="text-gray-500 mt-2">현재 시트: <span id="current-sheet-name" class="font-semibold text-blue-600">삼성</span></p>
+            <p class="text-sm text-red-500 mt-1">※ 현재재고 데이터는 시트 이름에 따라 BJ 또는 BP열에서 가져옵니다.</p>
         </div>
 
-        <!-- 카테고리 선택 버튼: data-sheet 값은 스프레드시트의 실제 시트 이름과 일치해야 합니다. -->
+        <!-- 카테고리 선택 버튼 -->
         <div class="mb-6 flex flex-wrap gap-2">
-            <button onclick="changeCategory('삼성')" data-sheet="삼성" class="category-btn bg-blue-500 text-white px-4 py-2 rounded-lg shadow hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 text-sm">
-                삼성
-            </button>
-            <button onclick="changeCategory('신도-미놀타')" data-sheet="신도-미놀타" class="category-btn bg-gray-200 text-gray-700 px-4 py-2 rounded-lg shadow hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-opacity-50 text-sm">
-                신도/미놀타
-            </button>
-            <button onclick="changeCategory('제록스-오키')" data-sheet="제록스-오키" class="category-btn bg-gray-200 text-gray-700 px-4 py-2 rounded-lg shadow hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-opacity-50 text-sm">
-                제록스/오키
-            </button>
-            <button onclick="changeCategory('교세라')" data-sheet="교세라" class="category-btn bg-gray-200 text-gray-700 px-4 py-2 rounded-lg shadow hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-opacity-50 text-sm">
-                교세라
-            </button>
-            <!-- 변경된 시트 이름 -->
-            <button onclick="changeCategory('브라더-HP-엡손-렉스마크-캐논')" data-sheet="브라더-HP-엡손-렉스마크-캐논" class="category-btn bg-gray-200 text-gray-700 px-4 py-2 rounded-lg shadow hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-opacity-50 text-sm">
-                브라더 외
-            </button>
-            <button onclick="changeCategory('새기기')" data-sheet="새기기" class="category-btn bg-gray-200 text-gray-700 px-4 py-2 rounded-lg shadow hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-opacity-50 text-sm">
-                새 기기
-            </button>
-            <!-- 변경된 시트 이름 -->
-            <button onclick="changeCategory('이니셜토너-데스크-팩스-용지')" data-sheet="이니셜토너-데스크-팩스-용지" class="category-btn bg-gray-200 text-gray-700 px-4 py-2 rounded-lg shadow hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-opacity-50 text-sm">
-                소모품 외
-            </button>
-            <!-- 변경된 시트 이름 -->
-            <button onclick="changeCategory('정착기-현상기-윕스부품')" data-sheet="정착기-현상기-윕스부품" class="category-btn bg-gray-200 text-gray-700 px-4 py-2 rounded-lg shadow hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-opacity-50 text-sm">
-                부품
-            </button>
+            <!-- 시트 이름 목록 -->
+            <button onclick="changeCategory('삼성')" data-sheet="삼성" class="category-btn bg-blue-500 text-white px-4 py-2 rounded-lg shadow hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 text-sm">삼성</button>
+            <button onclick="changeCategory('신도-미놀타')" data-sheet="신도-미놀타" class="category-btn bg-gray-200 text-gray-700 px-4 py-2 rounded-lg shadow hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-opacity-50 text-sm">신도/미놀타</button>
+            <button onclick="changeCategory('제록스-오키')" data-sheet="제록스-오키" class="category-btn bg-gray-200 text-gray-700 px-4 py-2 rounded-lg shadow hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-opacity-50 text-sm">제록스/오키</button>
+            <button onclick="changeCategory('교세라')" data-sheet="교세라" class="category-btn bg-gray-200 text-gray-700 px-4 py-2 rounded-lg shadow hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-opacity-50 text-sm">교세라</button>
+            <button onclick="changeCategory('브라더-HP-엡손-렉스마크-캐논')" data-sheet="브라더-HP-엡손-렉스마크-캐논" class="category-btn bg-gray-200 text-gray-700 px-4 py-2 rounded-lg shadow hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-opacity-50 text-sm">브라더 외</button>
+            <button onclick="changeCategory('새기기')" data-sheet="새기기" class="category-btn bg-gray-200 text-gray-700 px-4 py-2 rounded-lg shadow hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-opacity-50 text-sm">새 기기</button>
+            <button onclick="changeCategory('이니셜토너-데스크-팩스-용지')" data-sheet="이니셜토너-데스크-팩스-용지" class="category-btn bg-gray-200 text-gray-700 px-4 py-2 rounded-lg shadow hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-opacity-50 text-sm">소모품 외</button>
+            <button onclick="changeCategory('정착기-현상기-윕스부품')" data-sheet="정착기-현상기-윕스부품" class="category-btn bg-gray-200 text-gray-700 px-4 py-2 rounded-lg shadow hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-opacity-50 text-sm">부품</button>
         </div>
         
         <!-- 검색 필드 -->
         <div class="mb-6">
-            <input type="text" id="search-input" oninput="applyFilterAndDisplay()" placeholder="제품 코드, 제품명, 또는 적용 모델로 검색하세요..." 
+            <input type="text" id="search-input" oninput="applyFilterAndDisplay()" placeholder="제품 코드, 기기명, 또는 토너이름으로 검색하세요..." 
                    class="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm transition duration-150 ease-in-out">
         </div>
 
@@ -77,11 +64,19 @@
                 <table class="min-w-full divide-y divide-gray-200 hidden" id="inventory-table">
                     <thead class="bg-gray-50">
                         <tr>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">제품 코드</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">제품명</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">적용 모델</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">현재고 (수정 가능)</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">상태</th>
+                            <!-- 고객 요청에 따른 새로운 헤더 구조 -->
+                            <th scope="col" class="px-3 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider table-cell-long">제품 코드</th>
+                            <th scope="col" class="px-3 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider table-cell-long">기기명 (구분)</th>
+                            <th scope="col" class="px-3 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider table-cell-long">토너이름 (모델명)</th>
+                            <th scope="col" class="px-3 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider table-cell-long">전월재고</th>
+                            <th scope="col" class="px-3 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider table-cell-long">입고 (시트)</th>
+                            <th scope="col" class="px-3 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider table-cell-long">출고 (시트)</th>
+                            <th scope="col" class="px-3 py-3 text-left text-xs font-bold text-blue-600 uppercase tracking-wider table-cell-long">현재 재고</th>
+                            <th scope="col" class="px-3 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider table-cell-long">기준수량</th>
+                            <th scope="col" class="px-3 py-3 text-left text-xs font-bold text-red-600 uppercase tracking-wider table-cell-long">부족재고</th>
+                            <th scope="col" class="px-3 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider table-cell-long">비고</th>
+                            <!-- 수정 버튼 및 상태 열 -->
+                            <th scope="col" class="px-3 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">입/출고</th>
                         </tr>
                     </thead>
                     <tbody id="inventory-body" class="bg-white divide-y divide-gray-200">
@@ -96,7 +91,8 @@
     </div>
 
     <script>
-        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxJUnraZGroune_uTgZ7_8E6PKjL3YE1X2OlUrHoLJ6Pq3rFySb2qKgWzI75lVnBwEwkA/exec';
+        // 🚨 중요: 여기에 배포된 구글 앱스 스크립트 웹 앱 URL을 붙여넣으세요.
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby5hXrB0DPLGvXb7_ndMifOOP1o0T6WZ_tAZ-JE4HyAWN71Fpuer75gQ92GjOSadN2Izw/exec'; 
 
         let currentCategory = '삼성'; 
         let currentInventoryData = []; 
@@ -108,9 +104,10 @@
         const errorText = document.getElementById('error-text');
         const notificationDiv = document.getElementById('notification');
         const notificationText = document.getElementById('notification-text');
+        const currentSheetNameSpan = document.getElementById('current-sheet-name');
 
-        // 확인: window.confirm() 대신 사용할 커스텀 모달 함수 (현재는 임시로 confirm을 사용합니다)
         function confirm(message) {
+            // 사용자 경험을 위해 커스텀 모달이 아닌 기본 confirm 사용 (개발 환경 제약)
             return window.confirm(message);
         }
 
@@ -143,7 +140,8 @@
             const filteredItems = items.filter(item => {
                 if (!searchTerm) return true;
                 
-                const searchTarget = `${item.id} ${item.name} ${item.model}`.toLowerCase();
+                // 검색 대상을 '제품 코드', '기기명(구분)', '토너이름(모델명)'으로 설정
+                const searchTarget = `${item.id} ${item.deviceName} ${item.tonerName}`.toLowerCase();
                 
                 return searchTarget.includes(searchTerm);
             });
@@ -156,6 +154,7 @@
          */
         function changeCategory(sheetName) {
             currentCategory = sheetName;
+            currentSheetNameSpan.textContent = sheetName;
             document.getElementById('search-input').value = ''; 
             currentInventoryData = []; 
             
@@ -172,26 +171,22 @@
             loadingDiv.classList.remove('hidden');
 
             try {
-                // Fetch 요청 실패 시 재시도 로직을 5회로 확장하고, 딜레이를 늘려 연결 안정성을 높입니다.
                 const MAX_RETRIES = 5; 
                 let response;
 
                 for (let i = 0; i < MAX_RETRIES; i++) {
                     try {
-                        // IMPORTANT: sheetName에 특수문자(& 등)가 포함될 경우를 대비해 인코딩을 적용합니다.
                         const url = `${SCRIPT_URL}?sheet=${encodeURIComponent(sheetName)}`; 
                         response = await fetch(url);
                         if (response.ok) {
-                            break; // 성공하면 루프 탈출
+                            break; 
                         }
                     } catch (e) {
-                        // Failed to fetch 오류 발생 시 잠시 대기 후 재시도
                         if (i < MAX_RETRIES - 1) {
-                            // 1.5초, 3초, 4.5초... 간격으로 재시도합니다.
                             await new Promise(resolve => setTimeout(resolve, 1500 * (i + 1))); 
                             console.warn(`Fetch failed for ${sheetName}, retrying... attempt ${i + 2}/${MAX_RETRIES}`);
                         } else {
-                            throw e; // 마지막 시도에서 실패하면 오류 throw
+                            throw e; 
                         }
                     }
                 }
@@ -211,7 +206,6 @@
 
             } catch (e) {
                 console.error('Fetch error:', e);
-                // "Failed to fetch" 오류를 좀 더 명확하게 안내하고, 총 시도 횟수를 표시합니다.
                 let errorMessage = e.message.includes('Failed to fetch') 
                     ? `연결 오류: Apps Script URL을 다시 한번 확인하고 배포 상태(액세스 권한: 모든 사용자)를 점검해주세요. 시트 이름이 '${sheetName}'로 정확한지 확인해 주세요. (총 ${MAX_RETRIES}회 시도 실패)`
                     : `데이터 로드 실패: ${e.message}`;
@@ -223,23 +217,40 @@
         }
 
         /**
-         * '수정' 버튼 클릭 시 호출됩니다. 재고 업데이트 요청을 보냅니다. (POST 요청)
+         * 입고/출고 버튼 클릭 시 호출됩니다. 최종 재고를 계산하여 업데이트 요청을 보냅니다. (POST 요청)
          */
-        async function handleUpdateClick(itemId, sheetName) {
-            const inputElement = document.getElementById(`stock-input-${itemId}`);
-            const newStock = inputElement.value;
-            
-            if (isNaN(parseInt(newStock, 10)) || newStock.trim() === '') {
-                showNotification('유효한 재고 수량을 입력해주세요.', 'error');
+        async function handleStockChange(itemId, sheetName, type) {
+            const amountInput = document.getElementById(`amount-input-${itemId}`);
+            const amount = parseInt(amountInput.value, 10);
+            const currentStockElement = document.getElementById(`stock-value-${itemId}`);
+            const currentStock = parseInt(currentStockElement.textContent, 10);
+
+            if (isNaN(amount) || amount <= 0) {
+                showNotification('유효한 입/출고 수량을 입력해주세요.', 'error');
                 return;
             }
+            
+            let newStock;
+            let actionText = type === 'INBOUND' ? '입고' : '출고';
+            
+            if (type === 'INBOUND') {
+                newStock = currentStock + amount;
+            } else { // OUTBOUND
+                if (currentStock < amount) {
+                    showNotification('현재 재고보다 출고 수량이 더 많습니다.', 'error');
+                    return;
+                }
+                newStock = currentStock - amount;
+            }
 
-            // Custom modal or confirmation dialog is required since window.confirm() is disallowed.
-            if (!confirm(`${sheetName} 시트의 제품코드 ${itemId}의 재고를 ${newStock}으로 수정하시겠습니까?`)) {
+            if (!confirm(`제품 코드 ${itemId}에 ${amount}개 ${actionText}를 반영하여 현재재고를 ${newStock}으로 수정하시겠습니까?`)) {
                 return;
             }
 
             try {
+                // UI에서 로딩 상태 표시 (해당 버튼만 비활성화하는 것이 더 좋으나, 간단하게 전체 로딩 표시)
+                loadingDiv.classList.remove('hidden');
+
                 const response = await fetch(SCRIPT_URL, {
                     method: 'POST',
                     headers: {
@@ -248,7 +259,7 @@
                     body: JSON.stringify({
                         sheetName: sheetName,
                         itemId: itemId,
-                        newStock: newStock
+                        newStock: newStock // 최종 계산된 재고를 Apps Script로 전송
                     })
                 });
 
@@ -256,6 +267,7 @@
 
                 if (result.success) {
                     showNotification(result.message, 'success');
+                    // 업데이트 성공 후 데이터를 다시 불러와 최신화합니다.
                     await fetchInventoryData(sheetName); 
                 } else if (result.error) {
                     showNotification(result.error, 'error');
@@ -266,6 +278,8 @@
             } catch (e) {
                 console.error('Update error:', e);
                 showNotification(`재고 업데이트 중 오류 발생: ${e.message}`, 'error');
+            } finally {
+                loadingDiv.classList.add('hidden');
             }
         }
 
@@ -280,7 +294,7 @@
             if (items.length === 0) {
                 const row = inventoryBody.insertRow();
                 const cell = row.insertCell();
-                cell.colSpan = 5;
+                cell.colSpan = 11; // 총 11개 열
                 cell.className = 'px-6 py-4 text-center text-gray-500';
                 cell.textContent = document.getElementById('search-input').value.trim() === '' 
                     ? '표시할 재고 데이터가 없습니다.' 
@@ -290,27 +304,49 @@
                     const row = document.createElement('tr');
                     
                     const stock = parseInt(item.stock, 10) || 0; 
-                    const statusColor = stock > 20 ? 'bg-green-100 text-green-800' : stock > 0 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800';
-                    const statusText = stock > 20 ? '정상' : stock > 0 ? '부족' : '품절';
+                    const threshold = parseInt(item.threshold, 10) || 0;
+
+                    // 기준수량 대비 현재재고 상태 표시
+                    const statusColor = stock > threshold ? 'bg-green-100 text-green-800' : stock > 0 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800';
+                    const statusText = stock > threshold ? '충분' : stock > 0 ? '경고' : '품절';
+
 
                     row.innerHTML = `
-                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${item.id}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">${item.name}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${item.model}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm font-bold text-blue-600">
-                            <div class="flex items-center space-x-2">
-                                <input type="number" value="${stock}" data-item-id="${item.id}" id="stock-input-${item.id}"
-                                    class="w-16 p-1 border border-gray-300 rounded text-center text-gray-800 focus:ring-blue-500 focus:border-blue-500" min="0">
-                                <button onclick="handleUpdateClick('${item.id}', '${currentCategory}')" 
-                                        class="bg-green-500 text-white p-2 rounded-md text-xs hover:bg-green-600 transition duration-150 shadow-sm whitespace-nowrap">
-                                    수정
-                                </button>
-                            </div>
+                        <td class="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900 table-cell-long">${item.id}</td>
+                        <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-700 table-cell-long">${item.deviceName}</td>
+                        <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-500 table-cell-long">${item.tonerName}</td>
+                        <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-500 table-cell-long">${item.prevStock}</td>
+                        <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-500 table-cell-long">${item.inbound}</td>
+                        <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-500 table-cell-long">${item.outbound}</td>
+                        
+                        <!-- 현재 재고 값 -->
+                        <td class="px-3 py-2 whitespace-nowrap text-sm font-bold text-blue-600 table-cell-long">
+                            <span id="stock-value-${item.id}">${stock}</span>
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm">
-                            <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${statusColor}">
-                                ${statusText}
-                            </span>
+                        
+                        <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-500 table-cell-long">${item.threshold}</td>
+                        <td class="px-3 py-2 whitespace-nowrap text-sm text-red-600 font-bold table-cell-long">${item.shortfall}</td>
+                        <td class="px-3 py-2 text-sm text-gray-500 table-cell-long">${item.remarks}</td>
+
+                        <!-- 입/출고 입력 및 버튼 영역 -->
+                        <td class="px-3 py-2 whitespace-nowrap text-sm">
+                            <div class="flex flex-col space-y-1 items-center">
+                                <input type="number" value="1" id="amount-input-${item.id}"
+                                    class="stock-input p-1 border border-gray-300 rounded text-center text-gray-800 focus:ring-blue-500 focus:border-blue-500" min="1">
+                                <div class="flex gap-1">
+                                    <button onclick="handleStockChange('${item.id}', '${currentCategory}', 'INBOUND')" 
+                                            class="bg-green-500 text-white p-1 rounded-md text-xs hover:bg-green-600 transition duration-150 shadow-sm whitespace-nowrap">
+                                        입고
+                                    </button>
+                                    <button onclick="handleStockChange('${item.id}', '${currentCategory}', 'OUTBOUND')" 
+                                            class="bg-red-500 text-white p-1 rounded-md text-xs hover:bg-red-600 transition duration-150 shadow-sm whitespace-nowrap">
+                                        출고
+                                    </button>
+                                </div>
+                                <span class="px-2 py-0.5 text-xs leading-5 font-semibold rounded-full text-center ${statusColor}">
+                                    ${statusText}
+                                </span>
+                            </div>
                         </td>
                     `;
                     inventoryBody.appendChild(row);
