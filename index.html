@@ -20,8 +20,6 @@
         <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
             <h1 class="text-3xl font-bold text-gray-800">재고 현황</h1>
             <p class="text-gray-500 mt-2">현재 시트: <span id="current-sheet-name" class="font-semibold text-blue-600">삼성</span></p>
-            <!-- 업데이트된 재고 데이터 소스 안내 문구 -->
-            <p class="text-sm text-red-500 mt-1">※ 현재재고 데이터는 '소모품 외', '새 기기' 시트는 BP열에서, 나머지 시트는 BJ열에서 가져옵니다.</p>
         </div>
 
         <!-- 카테고리 선택 버튼 -->
@@ -39,7 +37,7 @@
         
         <!-- 검색 필드 -->
         <div class="mb-6">
-            <input type="text" id="search-input" oninput="applyFilterAndDisplay()" placeholder="제품 코드, 기기명, 또는 토너이름으로 검색하세요..." 
+            <input type="text" id="search-input" oninput="applyFilterAndDisplay()" placeholder="기기명 (구분), 또는 토너이름 (모델명)으로 검색하세요..." 
                    class="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm transition duration-150 ease-in-out">
         </div>
 
@@ -65,8 +63,7 @@
                 <table class="min-w-full divide-y divide-gray-200 hidden" id="inventory-table">
                     <thead class="bg-gray-50">
                         <tr>
-                            <!-- 5개 핵심 열만 표시하도록 수정 -->
-                            <th scope="col" class="px-3 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider table-cell-long">제품 코드</th>
+                            <!-- 헤더를 사용자 요청에 맞춰 수정 -->
                             <th scope="col" class="px-3 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider table-cell-long">기기명 (구분)</th>
                             <th scope="col" class="px-3 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider table-cell-long">토너이름 (모델명)</th>
                             <th scope="col" class="px-3 py-3 text-left text-xs font-bold text-blue-600 uppercase tracking-wider table-cell-long">현재 재고</th>
@@ -102,7 +99,6 @@
 
         function confirm(message) {
             // 경고: Canvas 환경에서는 window.confirm() 대신 커스텀 모달 UI를 사용해야 합니다.
-            // 하지만 이 코드는 원본의 confirm()을 유지합니다.
             return window.confirm(message);
         }
 
@@ -135,8 +131,8 @@
             const filteredItems = items.filter(item => {
                 if (!searchTerm) return true;
                 
-                // 검색 대상을 '제품 코드', '기기명(구분)', '토너이름(모델명)'으로 설정
-                const searchTarget = `${item.id} ${item.deviceName} ${item.tonerName}`.toLowerCase();
+                // 검색 대상을 '기기명(구분)', '토너이름(모델명)'으로 설정
+                const searchTarget = `${item.deviceName} ${item.tonerName}`.toLowerCase();
                 
                 return searchTarget.includes(searchTerm);
             });
@@ -196,8 +192,6 @@
                     throw new Error(`시트 오류: ${data.error}`);
                 }
                 
-                // 중요한 데이터만 필터링하거나 변환하는 로직은 Apps Script에 있다고 가정합니다.
-                // 이 클라이언트 코드에서는 받은 데이터를 그대로 사용합니다.
                 currentInventoryData = data; 
                 applyFilterAndDisplay();
 
@@ -240,7 +234,10 @@
                 newStock = currentStock - amount;
             }
 
-            if (!confirm(`제품 코드 ${itemId}에 ${amount}개 ${actionText}를 반영하여 현재재고를 ${newStock}으로 수정하시겠습니까?`)) {
+            // itemId는 '구분|모델명' 형식입니다.
+            const [deviceName, tonerName] = itemId.split('|');
+
+            if (!confirm(`항목 (기기명: ${deviceName}, 토너: ${tonerName})에 ${amount}개 ${actionText}를 반영하여 현재재고를 ${newStock}으로 수정하시겠습니까?`)) {
                 return;
             }
 
@@ -255,7 +252,7 @@
                     },
                     body: JSON.stringify({
                         sheetName: sheetName,
-                        itemId: itemId,
+                        itemId: itemId, // 복합 키(구분|모델명) 전송
                         newStock: newStock // 최종 계산된 재고를 Apps Script로 전송
                     })
                 });
@@ -291,7 +288,7 @@
             if (items.length === 0) {
                 const row = inventoryBody.insertRow();
                 const cell = row.insertCell();
-                cell.colSpan = 5; // 5개 열에 맞게 수정
+                cell.colSpan = 4; // 4개 열에 맞게 수정
                 cell.className = 'px-6 py-4 text-center text-gray-500';
                 cell.textContent = document.getElementById('search-input').value.trim() === '' 
                     ? '표시할 재고 데이터가 없습니다.' 
@@ -303,28 +300,23 @@
                     const stock = parseInt(item.stock, 10) || 0; 
                     const threshold = parseInt(item.threshold, 10) || 0;
 
-                    // 기준수량 대비 현재재고 상태 표시 (기준수량 데이터가 없으므로 임시로 0보다 큰지에 따라 표시)
-                    // 실제 앱스 스크립트 데이터에 'threshold'가 없으면 이 로직은 재고가 0인지 여부만 확인하게 됩니다.
                     const statusColor = stock > threshold ? 'bg-green-100 text-green-800' : stock > 0 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800';
                     const statusText = stock > threshold ? '충분' : stock > 0 ? '경고' : '품절';
 
 
                     row.innerHTML = `
-                        <!-- 1. 제품 코드 -->
-                        <td class="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900 table-cell-long">${item.id}</td>
-                        
-                        <!-- 2. 기기명 (구분) - B열 매핑 가정 -->
+                        <!-- 1. 기기명 (구분) -->
                         <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-700 table-cell-long">${item.deviceName}</td>
                         
-                        <!-- 3. 토너이름 (모델명) - D열 매핑 가정 -->
+                        <!-- 2. 토너이름 (모델명) -->
                         <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-500 table-cell-long">${item.tonerName}</td>
                         
-                        <!-- 4. 현재 재고 값 (BJ/BP열 매핑 가정) -->
+                        <!-- 3. 현재 재고 값 -->
                         <td class="px-3 py-2 whitespace-nowrap text-sm font-bold text-blue-600 table-cell-long">
                             <span id="stock-value-${item.id}">${stock}</span>
                         </td>
                         
-                        <!-- 5. 입/출고 입력 및 버튼 영역 -->
+                        <!-- 4. 입/출고 입력 및 버튼 영역 -->
                         <td class="px-3 py-2 whitespace-nowrap text-sm">
                             <div class="flex flex-col space-y-1 items-center">
                                 <input type="number" value="1" id="amount-input-${item.id}"
@@ -353,7 +345,20 @@
         function showError(message) {
             inventoryTable.classList.add('hidden');
             errorDiv.classList.remove('hidden');
-            errorText.textContent = message;
+            
+            // 헤더 관련 오류인 경우 사용자에게 더 명확한 안내를 제공합니다.
+            if (message.includes('필수 헤더')) {
+                 errorText.innerHTML = message + 
+                     `<br><br>
+                     <strong>스프레드시트 확인 사항 (5개 헤더):</strong>
+                     <ol class="list-decimal list-inside text-left mx-auto max-w-sm mt-2">
+                        <li><strong>1. 헤더 이름 일치:</strong> '구분', '모델명', '입고', '출고', '현재재고'의 이름과 띄어쓰기가 시트와 정확히 일치하는지 확인하세요.</li>
+                        <li><strong>2. 헤더 행 위치:</strong> 헤더 행이 시트의 1행부터 10행 사이에 있는지 확인하세요.</li>
+                        <li><strong>3. Apps Script URL:</strong> URL이 올바르게 배포되었는지(액세스 권한: 모든 사용자) 다시 한번 확인하세요.</li>
+                     </ol>`;
+            } else {
+                 errorText.textContent = message;
+            }
         }
 
         // 활성화된 버튼 스타일을 업데이트하는 함수
