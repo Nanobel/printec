@@ -3,16 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>재고 관리 시스템 (입/출고 기능)</title>
+    <title>재고 관리 시스템 (전월재고 기반 동적 기록)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Noto Sans KR', sans-serif; }
         .category-btn { transition: all 0.2s ease-in-out; }
-        /* 긴 텍스트를 줄바꿈하여 모바일에서도 볼 수 있도록 함 */
         .table-cell-long { white-space: normal; }
-        /* 재고 입력 필드 폭 조정 */
         .stock-input { width: 4.5rem; }
+        /* 커스텀 모달 스타일 */
+        .custom-modal { z-index: 1000; background-color: rgba(0, 0, 0, 0.5); }
     </style>
 </head>
 <body class="bg-gray-100">
@@ -20,11 +20,16 @@
         <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
             <h1 class="text-3xl font-bold text-gray-800">재고 현황</h1>
             <p class="text-gray-500 mt-2">현재 시트: <span id="current-sheet-name" class="font-semibold text-blue-600">삼성</span></p>
+            <!-- 동적으로 결정된 입/출고 기록 대상 컬럼 표시 -->
+            <div id="target-columns-info" class="mt-3 p-3 bg-blue-50 border-l-4 border-blue-500 text-blue-800 hidden">
+                <p class="font-semibold">⚠️ 기록 대상 컬럼 (전월재고 기준):</p>
+                <p class="text-sm">입고 기록 위치: <strong id="inbound-col-name" class="text-green-600"></strong></p>
+                <p class="text-sm">출고 기록 위치: <strong id="outbound-col-name" class="text-red-600"></strong></p>
+            </div>
         </div>
 
         <!-- 카테고리 선택 버튼 -->
         <div class="mb-6 flex flex-wrap gap-2">
-            <!-- 시트 이름 목록 -->
             <button onclick="changeCategory('삼성')" data-sheet="삼성" class="category-btn bg-blue-500 text-white px-4 py-2 rounded-lg shadow hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 text-sm">삼성</button>
             <button onclick="changeCategory('신도-미놀타')" data-sheet="신도-미놀타" class="category-btn bg-gray-200 text-gray-700 px-4 py-2 rounded-lg shadow hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-opacity-50 text-sm">신도/미놀타</button>
             <button onclick="changeCategory('제록스-오키')" data-sheet="제록스-오키" class="category-btn bg-gray-200 text-gray-700 px-4 py-2 rounded-lg shadow hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-opacity-50 text-sm">제록스/오키</button>
@@ -63,7 +68,6 @@
                 <table class="min-w-full divide-y divide-gray-200 hidden" id="inventory-table">
                     <thead class="bg-gray-50">
                         <tr>
-                            <!-- 헤더를 사용자 요청에 맞춰 수정 -->
                             <th scope="col" class="px-3 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider table-cell-long">기기명 (구분)</th>
                             <th scope="col" class="px-3 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider table-cell-long">토너이름 (모델명)</th>
                             <th scope="col" class="px-3 py-3 text-left text-xs font-bold text-blue-600 uppercase tracking-wider table-cell-long">현재 재고</th>
@@ -76,6 +80,18 @@
                 </table>
             </div>
         </div>
+        
+        <!-- 커스텀 모달 (Confirm 대체) -->
+        <div id="custom-confirm-modal" class="custom-modal fixed inset-0 flex items-center justify-center hidden">
+            <div class="bg-white rounded-lg shadow-xl p-6 w-11/12 max-w-sm">
+                <p id="confirm-message" class="text-gray-700 mb-6 text-center text-lg font-semibold"></p>
+                <div class="flex justify-around space-x-4">
+                    <button id="confirm-cancel" class="bg-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-400 transition duration-150 w-full">취소</button>
+                    <button id="confirm-ok" class="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition duration-150 w-full">확인</button>
+                </div>
+            </div>
+        </div>
+
         <footer class="text-center text-gray-500 mt-8 text-sm">
             <p>&copy; 2025 Inventory Manager. All rights reserved.</p>
         </footer>
@@ -83,10 +99,11 @@
 
     <script>
         // 🚨 중요: 여기에 배포된 구글 앱스 스크립트 웹 앱 URL을 붙여넣으세요.
-        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxHqSTGcyd7LF8xdaDG_UJyuweJLEe9xx98lwUMAWx_utq1pjDdB5HLIZ-OKMpUkUWXAA/exec'; 
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz_uGQIxfBjNJ0NLPxWfW28xMrsz3PZdSqGQjKfu0HnFrs64QmoZ5zCBbc2dbImS4Nuqg/exec'; 
 
         let currentCategory = '삼성'; 
         let currentInventoryData = []; 
+        let transactionCols = { inboundName: '', outboundName: '', inboundIndex: null, outboundIndex: null };
         
         const inventoryBody = document.getElementById('inventory-body');
         const inventoryTable = document.getElementById('inventory-table');
@@ -96,11 +113,46 @@
         const notificationDiv = document.getElementById('notification');
         const notificationText = document.getElementById('notification-text');
         const currentSheetNameSpan = document.getElementById('current-sheet-name');
+        
+        // 동적 컬럼 정보 표시 요소
+        const targetColumnsInfoDiv = document.getElementById('target-columns-info');
+        const inboundColNameSpan = document.getElementById('inbound-col-name');
+        const outboundColNameSpan = document.getElementById('outbound-col-name');
+        
+        // 커스텀 모달 요소
+        const confirmModal = document.getElementById('custom-confirm-modal');
+        const confirmMessage = document.getElementById('confirm-message');
+        const confirmOk = document.getElementById('confirm-ok');
+        const confirmCancel = document.getElementById('confirm-cancel');
 
-        function confirm(message) {
-            // 경고: Canvas 환경에서는 window.confirm() 대신 커스텀 모달 UI를 사용해야 합니다.
-            return window.confirm(message);
+        /**
+         * Custom Confirm (window.confirm 대체)
+         */
+        function customConfirm(message) {
+            return new Promise(resolve => {
+                confirmOk.replaceWith(confirmOk.cloneNode(true));
+                confirmCancel.replaceWith(confirmCancel.cloneNode(true));
+                const newConfirmOk = document.getElementById('confirm-ok');
+                const newConfirmCancel = document.getElementById('confirm-cancel');
+
+                confirmMessage.textContent = message;
+                confirmModal.classList.remove('hidden');
+
+                const handleOk = () => {
+                    confirmModal.classList.add('hidden');
+                    resolve(true);
+                };
+
+                const handleCancel = () => {
+                    confirmModal.classList.add('hidden');
+                    resolve(false);
+                };
+
+                newConfirmOk.addEventListener('click', handleOk);
+                newConfirmCancel.addEventListener('click', handleCancel);
+            });
         }
+
 
         /**
          * 알림 메시지를 표시합니다.
@@ -115,7 +167,6 @@
                 notificationDiv.classList.add('bg-red-100', 'text-red-800');
             }
 
-            // 5초 후에 알림 숨기기
             setTimeout(() => {
                 notificationDiv.classList.add('hidden');
             }, 5000);
@@ -131,7 +182,6 @@
             const filteredItems = items.filter(item => {
                 if (!searchTerm) return true;
                 
-                // 검색 대상을 '기기명(구분)', '토너이름(모델명)'으로 설정
                 const searchTarget = `${item.deviceName} ${item.tonerName}`.toLowerCase();
                 
                 return searchTarget.includes(searchTerm);
@@ -148,6 +198,7 @@
             currentSheetNameSpan.textContent = sheetName;
             document.getElementById('search-input').value = ''; 
             currentInventoryData = []; 
+            transactionCols = { inboundName: '', outboundName: '', inboundIndex: null, outboundIndex: null };
             
             updateActiveButton(sheetName);
             fetchInventoryData(sheetName);
@@ -159,6 +210,7 @@
         async function fetchInventoryData(sheetName) {
             inventoryTable.classList.add('hidden');
             errorDiv.classList.add('hidden');
+            targetColumnsInfoDiv.classList.add('hidden');
             loadingDiv.classList.remove('hidden');
 
             try {
@@ -192,7 +244,15 @@
                     throw new Error(`시트 오류: ${data.error}`);
                 }
                 
-                currentInventoryData = data; 
+                currentInventoryData = data.inventory; 
+                transactionCols = data.transactionCols; // 동적 컬럼 정보 저장
+
+                // 동적 컬럼 정보 UI 업데이트
+                inboundColNameSpan.textContent = `${transactionCols.inboundName} (Col Index: ${transactionCols.inboundIndex})`;
+                outboundColNameSpan.textContent = `${transactionCols.outboundName} (Col Index: ${transactionCols.outboundIndex})`;
+                targetColumnsInfoDiv.classList.remove('hidden');
+
+
                 applyFilterAndDisplay();
 
             } catch (e) {
@@ -208,80 +268,66 @@
         }
 
         /**
-         * 입고/출고 버튼 클릭 시 호출됩니다. 최종 재고를 계산하여 업데이트 요청을 보냅니다. (POST 요청)
+         * 입고/출고 버튼 클릭 시 호출됩니다. 트랜잭션 기록을 요청합니다. (POST 요청)
          */
         async function handleStockChange(itemId, sheetName, type) {
-            // --- 디버깅 로그 추가 ---
-            console.log(`[DEBUG] 1. Stock change function started. ItemID: ${itemId}, Type: ${type}`);
-            // --- 디버깅 로그 끝 ---
+            // 거래 대상 컬럼이 설정되었는지 확인
+            const targetColIndex = type === 'INBOUND' ? transactionCols.inboundIndex : transactionCols.outboundIndex;
+            const targetColName = type === 'INBOUND' ? transactionCols.inboundName : transactionCols.outboundName;
+            
+            if (!targetColIndex) {
+                 showNotification('기록 대상 컬럼 정보가 누락되었습니다. 데이터를 다시 불러오세요.', 'error');
+                 return;
+            }
 
             const amountInput = document.getElementById(`amount-input-${itemId}`);
             const amount = parseInt(amountInput.value, 10);
-            const currentStockElement = document.getElementById(`stock-value-${itemId}`);
-            const currentStock = parseInt(currentStockElement.textContent, 10);
-
+            
             if (isNaN(amount) || amount <= 0) {
-                showNotification('유효한 입/출고 수량을 입력해주세요.', 'error');
+                showNotification('유효한 입/출고 수량을 입력해주세요. (1 이상)', 'error');
                 return;
             }
             
-            let newStock;
             let actionText = type === 'INBOUND' ? '입고' : '출고';
             
-            if (type === 'INBOUND') {
-                newStock = currentStock + amount;
-            } else { // OUTBOUND
-                if (currentStock < amount) {
-                    showNotification('현재 재고보다 출고 수량이 더 많습니다.', 'error');
-                    return;
-                }
-                newStock = currentStock - amount;
-            }
-
-            // itemId는 '구분|모델명' 형식입니다.
             const [deviceName, tonerName] = itemId.split('|');
 
-            // --- 디버깅 로그 추가 ---
-            console.log(`[DEBUG] 2. Calculated new stock: ${newStock} (Current: ${currentStock}, Change: ${type === 'INBOUND' ? '+' : '-'}${amount})`);
-            // --- 디버깅 로그 끝 ---
+            const confirmationMessage = `항목 (기기명: ${deviceName}, 토너: ${tonerName})에 ${amount}개 ${actionText}를 컬럼 [${targetColName}]에 기록하시겠습니까?`;
 
-            if (!confirm(`항목 (기기명: ${deviceName}, 토너: ${tonerName})에 ${amount}개 ${actionText}를 반영하여 현재재고를 ${newStock}으로 수정하시겠습니까?`)) {
-                // --- 디버깅 로그 추가 ---
-                console.log('[DEBUG] 3. User cancelled confirmation.');
-                // --- 디버깅 로그 끝 ---
-                return;
+            // 커스텀 모달을 사용하여 확인합니다.
+            const isConfirmed = await customConfirm(confirmationMessage);
+            if (!isConfirmed) {
+                 return;
             }
 
             try {
-                // UI에서 로딩 상태 표시
                 loadingDiv.classList.remove('hidden');
-
-                // --- 디버깅 로그 추가 ---
-                console.log(`[DEBUG] 4. Sending POST request to ${SCRIPT_URL}`);
-                // --- 디버깅 로그 끝 ---
 
                 const response = await fetch(SCRIPT_URL, {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                        'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
                         sheetName: sheetName,
-                        itemId: itemId, // 복합 키(구분|모델명) 전송
-                        newStock: newStock // 최종 계산된 재고를 Apps Script로 전송
+                        itemId: itemId, 
+                        amount: amount, 
+                        changeType: type, // 'INBOUND' 또는 'OUTBOUND'
+                        targetColIndex: targetColIndex // 1-based index 전달
                     })
                 });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP 오류: ${response.status} ${response.statusText}`);
+                }
 
                 const result = await response.json();
 
                 if (result.success) {
                     showNotification(result.message, 'success');
-                    // 업데이트 성공 후 데이터를 다시 불러와 최신화합니다.
+                    // 업데이트 성공 후 데이터를 다시 불러와 시트에서 계산된 최신 재고 값을 화면에 반영합니다.
                     await fetchInventoryData(sheetName); 
                 } else if (result.error) {
-                    // --- 디버깅 로그 추가 ---
-                    console.error('[DEBUG] 5. Apps Script reported an error:', result.error);
-                    // --- 디버깅 로그 끝 ---
                     showNotification(result.error, 'error');
                 } else {
                     throw new Error('알 수 없는 오류가 발생했습니다.');
@@ -289,7 +335,7 @@
 
             } catch (e) {
                 console.error('Update error:', e);
-                showNotification(`재고 업데이트 중 오류 발생: ${e.message}`, 'error');
+                showNotification(`거래 기록 중 오류 발생: ${e.message}`, 'error');
             } finally {
                 loadingDiv.classList.add('hidden');
             }
@@ -306,7 +352,7 @@
             if (items.length === 0) {
                 const row = inventoryBody.insertRow();
                 const cell = row.insertCell();
-                cell.colSpan = 4; // 4개 열에 맞게 수정
+                cell.colSpan = 4; 
                 cell.className = 'px-6 py-4 text-center text-gray-500';
                 cell.textContent = document.getElementById('search-input').value.trim() === '' 
                     ? '표시할 재고 데이터가 없습니다.' 
@@ -329,7 +375,7 @@
                         <!-- 2. 토너이름 (모델명) -->
                         <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-500 table-cell-long">${item.tonerName}</td>
                         
-                        <!-- 3. 현재 재고 값 -->
+                        <!-- 3. 현재 재고 값 (시트 수식에 의해 계산됨) -->
                         <td class="px-3 py-2 whitespace-nowrap text-sm font-bold text-blue-600 table-cell-long">
                             <span id="stock-value-${item.id}">${stock}</span>
                         </td>
@@ -342,11 +388,11 @@
                                 <div class="flex gap-1">
                                     <button onclick="handleStockChange('${item.id}', '${currentCategory}', 'INBOUND')" 
                                             class="bg-green-500 text-white p-1 rounded-md text-xs hover:bg-green-600 transition duration-150 shadow-sm whitespace-nowrap">
-                                        입고
+                                        입고 (${transactionCols.inboundName || 'Col?'})
                                     </button>
                                     <button onclick="handleStockChange('${item.id}', '${currentCategory}', 'OUTBOUND')" 
                                             class="bg-red-500 text-white p-1 rounded-md text-xs hover:bg-red-600 transition duration-150 shadow-sm whitespace-nowrap">
-                                        출고
+                                        출고 (${transactionCols.outboundName || 'Col?'})
                                     </button>
                                 </div>
                                 <span class="px-2 py-0.5 text-xs leading-5 font-semibold rounded-full text-center ${statusColor}">
@@ -363,16 +409,17 @@
         function showError(message) {
             inventoryTable.classList.add('hidden');
             errorDiv.classList.remove('hidden');
+            targetColumnsInfoDiv.classList.add('hidden');
             
             // 헤더 관련 오류인 경우 사용자에게 더 명확한 안내를 제공합니다.
-            if (message.includes('필수 헤더')) {
+            if (message.includes('필수 헤더') || message.includes('전월재고')) {
                  errorText.innerHTML = message + 
                      `<br><br>
-                     <strong>스프레드시트 확인 사항 (5개 헤더):</strong>
+                     <strong>시트 확인 사항:</strong>
                      <ol class="list-decimal list-inside text-left mx-auto max-w-sm mt-2">
-                        <li><strong>1. 헤더 이름 일치:</strong> '구분', '모델명', '입고', '출고', '현재재고'의 이름과 띄어쓰기가 시트와 정확히 일치하는지 확인하세요.</li>
-                        <li><strong>2. 헤더 행 위치:</strong> 헤더 행이 시트의 1행부터 10행 사이에 있는지 확인하세요.</li>
-                        <li><strong>3. Apps Script URL:</strong> URL이 올바르게 배포되었는지(액세스 권한: 모든 사용자) 다시 한번 확인하세요.</li>
+                        <li><strong>1. 필수 헤더:</strong> '구분', '모델명', '전월재고', '현재재고'의 이름과 띄어쓰기가 시트와 정확히 일치하는지 확인하세요.</li>
+                        <li><strong>2. 동적 컬럼:</strong> '전월재고' 헤더가 시트에 존재하고, 그 바로 앞 두 컬럼(입고/출고 기록 대상)이 비어있지 않은지 확인해 주세요.</li>
+                        <li><strong>3. Apps Script URL:</strong> URL이 올바르게 배포되었는지(액세스 권한: 모든 사용자) 다시 한번 확인해 주세요.</li>
                      </ol>`;
             } else {
                  errorText.textContent = message;
