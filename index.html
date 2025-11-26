@@ -20,7 +20,6 @@
         <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
             <h1 class="text-3xl font-bold text-gray-800">재고 현황</h1>
             <p class="text-gray-500 mt-2">현재 시트: <span id="current-sheet-name" class="font-semibold text-blue-600">삼성</span></p>
-            <!-- 동적 컬럼 정보 표시 영역은 제거되었습니다. -->
         </div>
 
         <!-- 카테고리 선택 버튼 -->
@@ -95,7 +94,8 @@
     <script>
         // 🚨 중요: 여기에 배포된 구글 앱스 스크립트 웹 앱 URL을 붙여넣으세요.
         // 현재는 예시 URL이므로, 반드시 사용자님의 Apps Script 배포 URL로 변경해야 합니다.
-        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzBNJBRW3hQG2teNdiGwSxNuj-vmzoICMGuU_U_VP6nud8xiaHeEw-bIfaCORvrTo8Eqg/exec'; 
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwU9o3bhalszlTDfnWoX1jSRWz31kOm0uuNTv_BCfhw96c-EhmujqESZLOAqaOzf3gGlw/exec'; 
+        const MAX_RETRIES = 3; // 재시도 횟수 상향 조정
 
         let currentCategory = '삼성'; 
         let currentInventoryData = []; 
@@ -120,10 +120,11 @@
          */
         function customConfirm(message) {
             return new Promise(resolve => {
-                confirmOk.replaceWith(confirmOk.cloneNode(true));
-                confirmCancel.replaceWith(confirmCancel.cloneNode(true));
-                const newConfirmOk = document.getElementById('confirm-ok');
-                const newConfirmCancel = document.getElementById('confirm-cancel');
+                // 기존 리스너 제거 및 복제 (중복 리스너 방지)
+                const newConfirmOk = confirmOk.cloneNode(true);
+                const newConfirmCancel = confirmCancel.cloneNode(true);
+                confirmOk.replaceWith(newConfirmOk);
+                confirmCancel.replaceWith(newConfirmCancel);
 
                 confirmMessage.textContent = message;
                 confirmModal.classList.remove('hidden');
@@ -138,8 +139,8 @@
                     resolve(false);
                 };
 
-                newConfirmOk.addEventListener('click', handleOk);
-                newConfirmCancel.addEventListener('click', handleCancel);
+                newConfirmOk.addEventListener('click', handleOk, { once: true });
+                newConfirmCancel.addEventListener('click', handleCancel, { once: true });
             });
         }
 
@@ -149,19 +150,72 @@
          */
         function showNotification(message, type = 'success') {
             notificationText.textContent = message;
-            notificationDiv.classList.remove('hidden', 'bg-red-100', 'text-red-800', 'bg-green-100', 'text-green-800');
+            notificationDiv.className = 'p-3 mb-4 rounded-lg shadow-md transition-opacity duration-300';
             
             if (type === 'success') {
                 notificationDiv.classList.add('bg-green-100', 'text-green-800');
             } else {
                 notificationDiv.classList.add('bg-red-100', 'text-red-800');
             }
+            notificationDiv.classList.remove('hidden');
 
             setTimeout(() => {
                 notificationDiv.classList.add('hidden');
             }, 5000);
         }
 
+        /**
+         * 에러 메시지를 표시하고 테이블을 숨깁니다.
+         */
+        function showError(message) {
+            inventoryTable.classList.add('hidden');
+            errorDiv.classList.remove('hidden');
+            
+            // 헤더 관련 오류인 경우 사용자에게 더 명확한 안내를 제공합니다.
+            if (message.includes('필수 헤더')) {
+                errorText.innerHTML = message + 
+                    `<br><br>
+                    <strong>시트 확인 사항:</strong>
+                    <ol class="list-decimal list-inside text-left mx-auto max-w-sm mt-2">
+                        <li><strong>1. 필수 헤더:</strong> '구분', '모델명', '전월재고', '현재재고'의 이름과 띄어쓰기가 시트와 정확히 일치하는지 확인하세요.</li>
+                        <li><strong>2. Apps Script URL:</strong> URL이 올바르게 배포되었는지(액세스 권한: 모든 사용자) 다시 한번 확인해 주세요.</li>
+                    </ol>`;
+            } else {
+                errorText.textContent = message;
+            }
+        }
+        
+        /**
+         * 구글 앱스 스크립트에서 데이터를 재시도 로직을 포함하여 가져옵니다.
+         * (재시도 로직을 함수로 분리하여 코드 가독성 향상)
+         */
+        async function fetchDataWithRetry(url) {
+            for (let i = 0; i < MAX_RETRIES; i++) {
+                try {
+                    const response = await fetch(url);
+                    if (response.ok) {
+                        const data = await response.json();
+                        if(data.error){
+                            // Apps Script에서 보낸 서버 측 에러 처리
+                            throw new Error(data.error); 
+                        }
+                        return data.inventory;
+                    } else {
+                        throw new Error(`HTTP 상태: ${response.status}`);
+                    }
+                } catch (e) {
+                    console.warn(`Fetch failed (attempt ${i + 1}/${MAX_RETRIES}):`, e.message);
+                    if (i < MAX_RETRIES - 1) {
+                        // Exponential backoff
+                        await new Promise(resolve => setTimeout(resolve, 1500 * (i + 1))); 
+                    } else {
+                        // Max retries reached
+                        throw e; 
+                    }
+                }
+            }
+        }
+        
         /**
          * 검색 입력이 변경되거나 카테고리가 변경될 때마다 호출되어 데이터를 필터링하고 테이블을 업데이트합니다.
          */
@@ -172,6 +226,7 @@
             const filteredItems = items.filter(item => {
                 if (!searchTerm) return true;
                 
+                // 검색 대상: deviceName (기기명/구분) 또는 tonerName (토너/모델명)
                 const searchTarget = `${item.deviceName} ${item.tonerName}`.toLowerCase();
                 
                 return searchTarget.includes(searchTerm);
@@ -200,45 +255,15 @@
             inventoryTable.classList.add('hidden');
             errorDiv.classList.add('hidden');
             loadingDiv.classList.remove('hidden');
+            
+            const url = `${SCRIPT_URL}?sheet=${encodeURIComponent(sheetName)}`;
 
             try {
-                const MAX_RETRIES = 5; 
-                let response;
-
-                for (let i = 0; i < MAX_RETRIES; i++) {
-                    try {
-                        const url = `${SCRIPT_URL}?sheet=${encodeURIComponent(sheetName)}`; 
-                        response = await fetch(url);
-                        if (response.ok) {
-                            break; 
-                        }
-                    } catch (e) {
-                        if (i < MAX_RETRIES - 1) {
-                            await new Promise(resolve => setTimeout(resolve, 1500 * (i + 1))); 
-                            console.warn(`Fetch failed for ${sheetName}, retrying... attempt ${i + 2}/${MAX_RETRIES}`);
-                        } else {
-                            throw e; 
-                        }
-                    }
-                }
-                
-                if (!response || !response.ok) {
-                    throw new Error(`데이터 요청 실패 (HTTP 상태: ${response ? response.status : '알 수 없음'})`);
-                }
-
-                const data = await response.json();
-
-                if(data.error){
-                    throw new Error(`시트 오류: ${data.error}`);
-                }
-                
-                currentInventoryData = data.inventory; 
-
+                currentInventoryData = await fetchDataWithRetry(url);
                 applyFilterAndDisplay();
-
             } catch (e) {
                 console.error('Fetch error:', e);
-                let errorMessage = e.message.includes('Failed to fetch') 
+                let errorMessage = e.message.includes('HTTP') || e.message.includes('Failed to fetch')
                     ? `연결 오류: Apps Script URL을 다시 한번 확인하고 배포 상태(액세스 권한: 모든 사용자)를 점검해주세요. 시트 이름이 '${sheetName}'로 정확한지 확인해 주세요. (총 ${MAX_RETRIES}회 시도 실패)`
                     : `데이터 로드 실패: ${e.message}`;
 
@@ -261,10 +286,9 @@
                 return;
             }
             
+            const [deviceName, tonerName] = itemId.split('|');
             let actionText = type === 'INBOUND' ? '입고' : '출고';
             
-            const [deviceName, tonerName] = itemId.split('|');
-
             const confirmationMessage = `항목 (기기명: ${deviceName}, 토너: ${tonerName})에 ${amount}개 ${actionText}를 기록하고 현재 재고를 업데이트하시겠습니까? (시트 거래 컬럼에는 기록되지 않습니다.)`;
 
             // 커스텀 모달을 사용하여 확인합니다.
@@ -273,6 +297,12 @@
                  return;
             }
 
+            // 요청 버튼들을 잠시 비활성화
+            const buttons = document.querySelectorAll(`#amount-input-${itemId} ~ .flex button`);
+            buttons.forEach(btn => btn.disabled = true);
+            const originalInputColor = amountInput.style.backgroundColor;
+            amountInput.style.backgroundColor = '#e0f7fa'; // 처리 중 시각적 피드백
+            
             try {
                 loadingDiv.classList.remove('hidden');
 
@@ -286,7 +316,6 @@
                         itemId: itemId, 
                         amount: amount, 
                         changeType: type // 'INBOUND' 또는 'OUTBOUND'
-                        // targetColIndex 제거 (Apps Script에서 사용하지 않음)
                     })
                 });
                 
@@ -298,10 +327,12 @@
 
                 if (result.success) {
                     showNotification(result.message, 'success');
+                    // 입력 필드 초기화 (선택 사항)
+                    amountInput.value = '1'; 
                     // 업데이트 성공 후 데이터를 다시 불러와 시트에서 계산된 최신 재고 값을 화면에 반영합니다.
                     await fetchInventoryData(sheetName); 
                 } else if (result.error) {
-                    showNotification(result.error, 'error');
+                    throw new Error(result.error);
                 } else {
                     throw new Error('알 수 없는 오류가 발생했습니다.');
                 }
@@ -311,6 +342,9 @@
                 showNotification(`거래 기록 중 오류 발생: ${e.message}`, 'error');
             } finally {
                 loadingDiv.classList.add('hidden');
+                // 요청 버튼 및 입력 필드 원상 복구
+                buttons.forEach(btn => btn.disabled = false);
+                amountInput.style.backgroundColor = originalInputColor;
             }
         }
 
@@ -335,11 +369,20 @@
                     const row = document.createElement('tr');
                     
                     const stock = parseInt(item.stock, 10) || 0; 
-                    const threshold = parseInt(item.threshold, 10) || 0;
-
-                    const statusColor = stock > threshold ? 'bg-green-100 text-green-800' : stock > 0 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800';
-                    const statusText = stock > threshold ? '충분' : stock > 0 ? '경고' : '품절';
-
+                    const threshold = parseInt(item.threshold, 10) || 0; // Apps Script에서 3번째 컬럼(D) 값으로 가정
+                    
+                    // 재고 상태 계산 및 스타일링
+                    let statusColor, statusText;
+                    if (stock > threshold) {
+                        statusColor = 'bg-green-100 text-green-800';
+                        statusText = '충분';
+                    } else if (stock > 0) {
+                        statusColor = 'bg-yellow-100 text-yellow-800';
+                        statusText = '경고';
+                    } else {
+                        statusColor = 'bg-red-100 text-red-800';
+                        statusText = '품절';
+                    }
 
                     row.innerHTML = `
                         <!-- 1. 기기명 (구분) -->
@@ -351,6 +394,9 @@
                         <!-- 3. 현재 재고 값 -->
                         <td class="px-3 py-2 whitespace-nowrap text-sm font-bold text-blue-600 table-cell-long">
                             <span id="stock-value-${item.id}">${stock}</span>
+                            <span class="ml-2 px-2 py-0.5 text-xs leading-5 font-semibold rounded-full ${statusColor}">
+                                ${statusText}
+                            </span>
                         </td>
                         
                         <!-- 4. 입/출고 입력 및 버튼 영역 -->
@@ -368,9 +414,6 @@
                                         출고
                                     </button>
                                 </div>
-                                <span class="px-2 py-0.5 text-xs leading-5 font-semibold rounded-full text-center ${statusColor}">
-                                    ${statusText}
-                                </span>
                             </div>
                         </td>
                     `;
@@ -379,24 +422,6 @@
             }
         }
         
-        function showError(message) {
-            inventoryTable.classList.add('hidden');
-            errorDiv.classList.remove('hidden');
-            
-            // 헤더 관련 오류인 경우 사용자에게 더 명확한 안내를 제공합니다.
-            if (message.includes('필수 헤더')) {
-                 errorText.innerHTML = message + 
-                     `<br><br>
-                     <strong>시트 확인 사항:</strong>
-                     <ol class="list-decimal list-inside text-left mx-auto max-w-sm mt-2">
-                        <li><strong>1. 필수 헤더:</strong> '구분', '모델명', '전월재고', '현재재고'의 이름과 띄어쓰기가 시트와 정확히 일치하는지 확인하세요.</li>
-                        <li><strong>2. Apps Script URL:</strong> URL이 올바르게 배포되었는지(액세스 권한: 모든 사용자) 다시 한번 확인해 주세요.</li>
-                     </ol>`;
-            } else {
-                 errorText.textContent = message;
-            }
-        }
-
         // 활성화된 버튼 스타일을 업데이트하는 함수
         function updateActiveButton(activeSheetName) {
             const buttons = document.querySelectorAll('.category-btn');
@@ -412,7 +437,12 @@
         }
 
         // 페이지가 로드되면 기본값으로 '삼성' 데이터를 가져옵니다.
-        document.addEventListener('DOMContentLoaded', () => fetchInventoryData('삼성'));
+        document.addEventListener('DOMContentLoaded', () => {
+            // 초기 버튼 활성화
+            updateActiveButton('삼성');
+            // 초기 데이터 로드
+            fetchInventoryData('삼성');
+        });
     </script>
 </body>
 </html>
